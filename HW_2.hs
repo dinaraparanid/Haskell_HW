@@ -1,37 +1,53 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wall #-}
 
-import CodeWorld
-import qualified Data.Set as Set
-import qualified Data.List as List
+module EscapeTheRoom where
+
+import           CodeWorld
+import qualified Data.List  as List
 import qualified Data.Maybe as Maybe
-
--- Code.World: https://code.world/haskell#PC3nLInLFLdq8NQExapi_4g
+import qualified Data.Set   as Set
 
 -- | -------------------------------- Game Rules --------------------------------
 -- In order to open exit door (green one), player has to open all red and blue doors
 -- by pressing `Enter` key button on all red/blue buttons. Single button can open
 -- only single door. When all red/blue doors are opened, player has to move to the
 -- opened green door to finish the game.
-
+--
 -- | -------------------------------- Types and Aliases --------------------------------
-
+--
 type Coords = (Int, Int)
+
 type Row = [Coords]
+
 type Matrix = [Row]
 
-data Tile = Floor | Wall | Exit | ExitOpened | BlueButton | RedButton
-  | BlueDoor | RedDoor | BlueDoorOpened | RedDoorOpened | Player
+data Tile
+  = Floor
+  | Wall
+  | Exit
+  | ExitOpened
+  | BlueButton
+  | RedButton
+  | BlueDoor
+  | RedDoor
+  | BlueDoorOpened
+  | RedDoorOpened
+  | Player
 
-data PlayerMovement = UpMv | DownMv | LeftMv | RightMv
+data PlayerMovement
+  = UpMv
+  | DownMv
+  | LeftMv
+  | RightMv
 
--- Game state with current player's coordinates,
--- last successful movement by player,
--- opened red doors and opened blue doors
-
-data GameState = GameState Coords PlayerMovement (Set.Set Coords) (Set.Set Coords)
+-- | Game state with current player's coordinates,
+--   last successful movement by player,
+--   opened red doors and opened blue doors
+data GameState =
+  GameState Coords PlayerMovement (Set.Set Coords) (Set.Set Coords)
 
 -- | -------------------------------- Tiles --------------------------------
-
 gameFieldLen :: Int
 gameFieldLen = 20
 
@@ -42,16 +58,17 @@ wallTile :: Picture
 wallTile = colored black (solidRectangle 0.95 0.95)
 
 doorLevel :: Int -> Color -> Picture
-doorLevel i c = colored c (solidRectangle (0.19 * (fromIntegral i))  (0.19 * (fromIntegral i)))
+doorLevel i c =
+  colored c (solidRectangle (0.19 * fromIntegral i) (0.19 * fromIntegral i))
 
 doorTileGen :: Int -> Color -> Picture
 doorTileGen i c
   | i == 1 = doorLevel 1 black
-  | i `mod` 2 == 1 = ((doorTileGen (i - 1) c)) <> (doorLevel i black)
-  | otherwise = (doorTileGen (i - 1) c) <> (doorLevel i c)
+  | i `mod` 2 == 1 = doorTileGen (i - 1) c <> doorLevel i black
+  | otherwise = doorTileGen (i - 1) c <> doorLevel i c
 
 doorTile :: Color -> Picture
-doorTile c = doorTileGen 5 c
+doorTile = doorTileGen 5
 
 openedDoorTile :: Color -> Picture
 openedDoorTile c = colored c (solidRectangle 0.95 0.95)
@@ -78,52 +95,55 @@ buttonTile :: Color -> Picture
 buttonTile c = colored c (solidCircle 0.3)
 
 blueButtonTile :: Picture
-blueButtonTile = (buttonTile blue) <> floorTile
+blueButtonTile = buttonTile blue <> floorTile
 
 redButtonTile :: Picture
-redButtonTile = (buttonTile red) <> floorTile
+redButtonTile = buttonTile red <> floorTile
 
--- Rotates/reflects 🚶 according to the given movement
-
+-- | Rotates/reflects 🚶 according to the given movement
 playerTile :: PlayerMovement -> Picture
-playerTile UpMv = rotated (-pi / 2) (lettering "🚶")
-playerTile DownMv = reflected (pi / 2) (rotated (pi / 2) (lettering "🚶"))
-playerTile LeftMv = lettering "🚶"
+playerTile UpMv    = rotated (-pi / 2) (lettering "🚶")
+playerTile DownMv  = reflected (pi / 2) (rotated (pi / 2) (lettering "🚶"))
+playerTile LeftMv  = lettering "🚶"
 playerTile RightMv = reflected (pi / 2) (lettering "🚶")
 
--- Translates tile to the given position in integers
-
+-- | Translates tile to the given position in integers
 translatedTile :: Coords -> Picture -> Picture
-translatedTile (f, s) tile = translated (fromIntegral f) (fromIntegral s) tile
+translatedTile (f, s) = translated (fromIntegral f) (fromIntegral s)
 
--- Produces image of the given tile by its coordinates and player's position
-
+-- | Produces image of the given tile by its coordinates and player's position
 tilePic :: (Coords, [Tile], PlayerMovement) -> Picture
-tilePic (c, [Wall], _) = translatedTile c wallTile
-tilePic (c, [Exit], _) = translatedTile c exitTile
-tilePic (c, [Floor], _) = translatedTile c floorTile
-tilePic (c, [RedDoor], _) = translatedTile c redDoorTile
-tilePic (c, [BlueDoor], _) = translatedTile c blueDoorTile
-tilePic (c, [RedButton], _) = translatedTile c redButtonTile
-tilePic (c, [BlueButton], _) = translatedTile c blueButtonTile
-tilePic (c, [ExitOpened], _) = translatedTile c openedExitTile
-tilePic (c, [RedDoorOpened], _) = translatedTile c openedRedDoorTile
-tilePic (c, [BlueDoorOpened], _) = translatedTile c openedBlueDoorTile
-tilePic (c, [Player, Exit], mv) = translatedTile c ((playerTile mv) <> exitTile)
-tilePic (c, [Player, Floor], mv) = translatedTile c ((playerTile mv) <> floorTile)
-tilePic (c, [Player, RedDoor], mv) = translatedTile c ((playerTile mv) <> redDoorTile)
-tilePic (c, [Player, BlueDoor], mv) = translatedTile c ((playerTile mv) <> blueDoorTile)
-tilePic (c, [Player, RedButton], mv) = translatedTile c ((playerTile mv) <> redButtonTile)
-tilePic (c, [Player, BlueButton], mv) = translatedTile c ((playerTile mv) <> blueButtonTile)
-tilePic (c, [Player, ExitOpened], mv) = translatedTile c ((playerTile mv) <> openedExitTile)
-tilePic (c, [Player, RedDoorOpened], mv) = translatedTile c ((playerTile mv) <> openedRedDoorTile)
-tilePic (c, [Player, BlueDoorOpened], mv) = translatedTile c ((playerTile mv) <> openedBlueDoorTile)
+tilePic (c, arr, mv) =
+  translatedTile
+    c
+    (case arr of
+       [Wall]                   -> wallTile
+       [Exit]                   -> exitTile
+       [Floor]                  -> floorTile
+       [RedDoor]                -> redDoorTile
+       [BlueDoor]               -> blueDoorTile
+       [RedButton]              -> redButtonTile
+       [BlueButton]             -> blueButtonTile
+       [ExitOpened]             -> openedExitTile
+       [RedDoorOpened]          -> openedRedDoorTile
+       [BlueDoorOpened]         -> openedBlueDoorTile
+       [Player, Exit]           -> playerTranslatedTile <> exitTile
+       [Player, Floor]          -> playerTranslatedTile <> floorTile
+       [Player, RedDoor]        -> playerTranslatedTile <> redDoorTile
+       [Player, BlueDoor]       -> playerTranslatedTile <> blueDoorTile
+       [Player, RedButton]      -> playerTranslatedTile <> redButtonTile
+       [Player, BlueButton]     -> playerTranslatedTile <> blueButtonTile
+       [Player, ExitOpened]     -> playerTranslatedTile <> openedExitTile
+       [Player, RedDoorOpened]  -> playerTranslatedTile <> openedRedDoorTile
+       [Player, BlueDoorOpened] -> playerTranslatedTile <> openedBlueDoorTile
+       _                        -> blank)
+  where
+    playerTranslatedTile = playerTile mv
 
 -- | -------------------------------- Position Handling --------------------------------
-
--- Checks if coordinates belong to the floor's set of coordinates.
--- Implemented with an explicit check row by row
-
+--
+-- | Checks if coordinates belong to the floor's set of coordinates.
+--   Implemented with an explicit check row by row
 isFloor :: Coords -> Bool
 isFloor (f, s)
   | s == 1 && f >= 1 && f <= 3 = True
@@ -225,7 +245,7 @@ blueButtonsCoords :: [Coords]
 blueButtonsCoords = [(13, 1), (19, 7), (7, 17), (13, 15)]
 
 isBlueButtonCoord :: Coords -> Bool
-isBlueButtonCoord coords = elem coords blueButtonsCoords
+isBlueButtonCoord coords = coords `elem` blueButtonsCoords
 
 blueDoorsCoords :: [Coords]
 blueDoorsCoords = [(15, 1), (19, 1), (3, 17), (9, 15)]
@@ -234,119 +254,191 @@ redButtonsCoords :: [Coords]
 redButtonsCoords = [(17, 17), (13, 7), (1, 11)]
 
 isRedButtonCoord :: Coords -> Bool
-isRedButtonCoord coords = elem coords redButtonsCoords
+isRedButtonCoord coords = coords `elem` redButtonsCoords
 
 redDoorsCoords :: [Coords]
 redDoorsCoords = [(17, 13), (11, 11), (5, 9)]
 
--- Opens door by given button's index.
--- Implementation relates on tree-sets to store only unique values.
--- 'index' must be valid number in 0 .. (length doorsCoords).
--- 'doorsCoords' are either blue or red doors' coordinates.
--- 'openedDoorsCoords' are either opened blue or red doors' coordinates
+-- | Opens door by given button's index.
+--   Implementation relates on tree-sets to store only unique values
+openDoor ::
+     Int -- ˆ 'index' must be valid number in 0 .. (length doorsCoords)
+  -> [Coords] -- ˆ 'doorsCoords' are either blue or red doors' coordinates
+  -> Set.Set Coords -- ˆ 'openedDoorsCoords' are either opened blue or red doors' coordinates
+  -> Set.Set Coords
+openDoor index doorsCoords = Set.insert (doorsCoords !! index)
 
-openDoor :: Int -> [Coords] -> Set.Set Coords -> Set.Set Coords
-openDoor index doorsCoords openedDoorsCoords = Set.insert (doorsCoords !! index) openedDoorsCoords
+-- | Opens blue door by given button's index.
+--   Implementation relates on tree-sets to store only unique values
+openBlueDoor ::
+     Int -- ˆ 'index' must be valid number in 0 .. (length blueDoorsCoords)
+  -> Set.Set Coords -- ˆ 'openedDoorsCoords' are currently opened blue doors' coordinates
+  -> Set.Set Coords
+openBlueDoor index = openDoor index blueDoorsCoords
 
--- Opens blue door by given button's index.
--- Implementation relates on tree-sets to store only unique values.
--- 'index' must be valid number in 0 .. (length blueDoorsCoords).
--- 'openedDoorsCoords' are currently opened blue doors' coordinates
+-- | Opens red door by given button's index.
+--   Implementation relates on tree-sets to store only unique values
+openRedDoor ::
+     Int -- ˆ 'index' must be valid number in 0 .. (length blueDoorsCoords)
+  -> Set.Set Coords -- ˆ 'openedDoorsCoords' are currently opened blue doors' coordinates
+  -> Set.Set Coords
+openRedDoor index = openDoor index redDoorsCoords
 
-openBlueDoor :: Int -> Set.Set Coords -> Set.Set Coords
-openBlueDoor index openedDoorsCoords = openDoor index blueDoorsCoords openedDoorsCoords
+-- | Checks if all red and blue doors are opened
+isExitOpened ::
+     Set.Set Coords -- ˆ Set of opened red doors
+  -> Set.Set Coords -- ˆ Set of opened blue doors
+  -> Bool
+isExitOpened redDoorsOpened blueDoorsOpened =
+  length redDoorsOpened + length blueDoorsOpened == 7
 
--- Opens red door by given button's index.
--- Implementation relates on tree-sets to store only unique values.
--- 'index' must be valid number in 0 .. (length redDoorsCoords).
--- 'openedDoorsCoords' are currently opened red doors' coordinates
+-- | Checks if all red and blue doors are opened and player has reached the door
+isGameFinished ::
+     Coords -- ˆ Current player's coordinate
+  -> Set.Set Coords -- ˆ Set of opened red doors
+  -> Set.Set Coords -- ˆ Set of opened blue doors
+  -> Bool
+isGameFinished (f, s) redDoorsOpened blueDoorsOpened =
+  f == 7 && s == 19 && isExitOpened redDoorsOpened blueDoorsOpened
 
-openRedDoor :: Int -> Set.Set Coords -> Set.Set Coords
-openRedDoor index openedDoorsCoords = openDoor index redDoorsCoords openedDoorsCoords
-
--- Checks if all red and blue doors are opened
-
-isExitOpened :: Set.Set Coords -> Set.Set Coords -> Bool
-isExitOpened redDoorsOpened blueDoorsOpened = length redDoorsOpened + length blueDoorsOpened == 7
-
--- Checks if all red and blue doors are opened and player has reached the door
-
-isGameFinished :: Coords -> Set.Set Coords -> Set.Set Coords -> Bool
-isGameFinished (f, s) redDoorsOpened blueDoorsOpened = f == 7 && s == 19 && isExitOpened redDoorsOpened blueDoorsOpened
-
--- Produces map's state for the current cell in the map by given coordinates and the game state.
--- Returns coordinates for presentation, all tiles on the given position and last player's movement
-
-myLevelMap :: Coords -> GameState -> (Coords, [Tile], PlayerMovement)
+-- | Produces map's state for the current cell in the map by given coordinates and the game state.
+--   Returns coordinates for presentation, all tiles on the given position and last player's movement
+myLevelMap ::
+     Coords -- ˆ Coordinate to render
+  -> GameState -- ˆ Current game state
+  -> (Coords, [Tile], PlayerMovement)
 myLevelMap (f, s) (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
-  | f == playerF && s == playerS && elem (f, s) blueButtonsCoords = ((f, -s), [Player, BlueButton], mv)
-  | f == playerF && s == playerS && elem (f, s) redButtonsCoords = ((f, -s), [Player, RedButton], mv)
-  | f == playerF && s == playerS && Set.member (f, s) blueDoorsOpened = ((f, -s), [Player, BlueDoorOpened], mv)
-  | f == playerF && s == playerS && Set.member (f, s) redDoorsOpened = ((f, -s), [Player, RedDoorOpened], mv)
-  | f == playerF && s == playerS && elem (f, s) blueDoorsCoords = ((f, -s), [Player, BlueDoor], mv)
-  | f == playerF && s == playerS && elem (f, s) redDoorsCoords = ((f, -s), [Player, RedDoor], mv)
-  | f == playerF && s == playerS && f == 7 && s == 19 && (isExitOpened redDoorsOpened blueDoorsOpened) = ((f, -s), [Player, ExitOpened], mv)
-  | f == playerF && s == playerS && f == 7 && s == 19 = ((f, -s), [Player, Exit], mv)
-  | f == playerF && s == playerS && isFloor (f, s) = ((f, -s), [Player, Floor], mv)
-  | elem (f, s) blueButtonsCoords = ((f, -s), [BlueButton], mv)
-  | elem (f, s) redButtonsCoords = ((f, -s), [RedButton], mv)
-  | Set.member (f, s) blueDoorsOpened = ((f, -s), [BlueDoorOpened], mv)
-  | Set.member (f, s) redDoorsOpened = ((f, -s), [RedDoorOpened], mv)
-  | elem (f, s) blueDoorsCoords = ((f, -s), [BlueDoor], mv)
-  | elem (f, s) redDoorsCoords = ((f, -s), [RedDoor], mv)
-  | f == 7 && s == 19 && (isExitOpened redDoorsOpened blueDoorsOpened) = ((f, -s), [ExitOpened], mv)
-  | f == 7 && s == 19 = ((f, -s), [Exit], mv)
-  | isFloor (f, s) = ((f, -s), [Floor], mv)
-  | otherwise = ((f, -s), [Wall], mv)
+  | areCoordsEqToPlayer && inBlueButtons = playerAndBlueButton
+  | areCoordsEqToPlayer && inRedButtons = playerAndRedButton
+  | areCoordsEqToPlayer && inBlueOpenedDoords = playerAndBlueDoorOpened
+  | areCoordsEqToPlayer && inRedOpenedDoords = playerAndRedDoorOpened
+  | areCoordsEqToPlayer && inBlueDoorsCoords = playerAndBlueDoor
+  | areCoordsEqToPlayer && inRedDoorsCoords = playerAndRedDoor
+  | areCoordsEqToPlayer && isExit && isExitReallyOpened = playerAndOpenedExit
+  | areCoordsEqToPlayer && isExit = playerAndExit
+  | areCoordsEqToPlayer && isFloor (f, s) = playerAndFloor
+  | inBlueButtons = blueButton
+  | inRedButtons = redButton
+  | inBlueOpenedDoords = blueDoorOpened
+  | inRedOpenedDoords = redDoorOpened
+  | inBlueDoorsCoords = blueDoor
+  | inRedDoorsCoords = redDoor
+  | isExit && isExitReallyOpened = openedExit
+  | isExit = exit
+  | isFloor (f, s) = flor
+  | otherwise = wall
+  where
+    areCoordsEqToPlayer = f == playerF && s == playerS
+    inBlueButtons = (f, s) `elem` blueButtonsCoords
+    inRedButtons = (f, s) `elem` redButtonsCoords
+    inBlueOpenedDoords = Set.member (f, s) blueDoorsOpened
+    inRedOpenedDoords = Set.member (f, s) redDoorsOpened
+    inBlueDoorsCoords = (f, s) `elem` blueDoorsCoords
+    inRedDoorsCoords = (f, s) `elem` redDoorsCoords
+    isExit = f == 7 && s == 19
+    isExitReallyOpened = isExitOpened redDoorsOpened blueDoorsOpened
+    position = (f, -s)
+    res arr = (position, arr, mv)
+    playerAndBlueButton = res [Player, BlueButton]
+    playerAndRedButton = res [Player, RedButton]
+    playerAndBlueDoorOpened = res [Player, BlueDoorOpened]
+    playerAndRedDoorOpened = res [Player, RedDoorOpened]
+    playerAndBlueDoor = res [Player, BlueDoor]
+    playerAndRedDoor = res [Player, RedDoor]
+    playerAndOpenedExit = res [Player, ExitOpened]
+    playerAndExit = res [Player, Exit]
+    playerAndFloor = res [Player, Floor]
+    blueButton = res [BlueButton]
+    redButton = res [RedButton]
+    blueDoorOpened = res [BlueDoorOpened]
+    redDoorOpened = res [RedDoorOpened]
+    blueDoor = res [BlueDoor]
+    redDoor = res [RedDoor]
+    openedExit = res [ExitOpened]
+    exit = res [Exit]
+    flor = res [Floor]
+    wall = res [Wall]
 
 -- | -------------------------------- Map Generation --------------------------------
-
+--
 row :: Int -> Row
-row ind = map (\i -> (ind, (gameFieldLen - i))) [0..gameFieldLen]
+row ind = map (\i -> (ind, gameFieldLen - i)) [0 .. gameFieldLen]
 
 matrix :: Matrix
-matrix = map(\i -> row (gameFieldLen - i)) [0..gameFieldLen]
+matrix = map (\i -> row (gameFieldLen - i)) [0 .. gameFieldLen]
 
 rowPicture :: Row -> GameState -> Picture
-rowPicture row gameState = foldl1 (<>) (map (tilePic) (map (\c -> myLevelMap c gameState) row))
+rowPicture rw gameState =
+  foldl (<>) blank (map (tilePic . (`myLevelMap` gameState)) rw)
 
 matrixPicture :: Matrix -> GameState -> Picture
-matrixPicture mtx gameState = foldl1 (<>) (map (\r -> rowPicture r gameState) mtx)
+matrixPicture mtx gameState =
+  foldl (<>) blank (map (`rowPicture` gameState) mtx)
 
 myLevelMapPicture :: GameState -> Picture
 myLevelMapPicture (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened) =
-  if isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened then lettering "Victory!"
-  else matrixPicture  matrix (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
+  if isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened
+    then lettering "Victory!"
+    else matrixPicture
+           matrix
+           (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
+
+updatePlayerCoordinate :: Event -> GameState -> GameState
+updatePlayerCoordinate event (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened) =
+  case event of
+    KeyPress "Up" ->
+      if isGameNotFinished && isFloor (playerF, playerS - 1)
+        then upped
+        else currentState
+    KeyPress "Down" ->
+      if isGameNotFinished && isFloor (playerF, playerS + 1)
+        then downed
+        else currentState
+    KeyPress "Left" ->
+      if isGameNotFinished && isFloor (playerF - 1, playerS)
+        then lefted
+        else currentState
+    KeyPress "Right" ->
+      if isGameNotFinished && isFloor (playerF + 1, playerS)
+        then righted
+        else currentState
+    KeyPress "Enter" ->
+      if isGameNotFinished
+        then if isBlueButtonCoord (playerF, playerS)
+               then blueButtonOpened
+               else if isRedButtonCoord (playerF, playerS)
+                      then redButtonOpened
+                      else currentState
+        else currentState
+    _ -> currentState
+  where
+    isGameNotFinished =
+      not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened)
+    currentState =
+      GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened
+    upped = GameState (playerF, playerS - 1) UpMv redDoorsOpened blueDoorsOpened
+    downed =
+      GameState (playerF, playerS + 1) DownMv redDoorsOpened blueDoorsOpened
+    lefted =
+      GameState (playerF - 1, playerS) LeftMv redDoorsOpened blueDoorsOpened
+    righted =
+      GameState (playerF + 1, playerS) RightMv redDoorsOpened blueDoorsOpened
+    buttonOpened = GameState (playerF, playerS) mv
+    blueButtonOpened =
+      buttonOpened
+        redDoorsOpened
+        (openBlueDoor
+           (Maybe.fromJust (List.elemIndex (playerF, playerS) blueButtonsCoords))
+           blueDoorsOpened)
+    redButtonOpened =
+      buttonOpened
+        (openRedDoor
+           (Maybe.fromJust (List.elemIndex (playerF, playerS) redButtonsCoords))
+           redDoorsOpened)
+        blueDoorsOpened
 
 main :: IO ()
 main = debugActivityOf initialGameState updatePlayerCoordinate gameState
   where
     initialGameState = GameState (1, 1) RightMv Set.empty Set.empty
-
-    gameState gameState = myLevelMapPicture gameState
-
-    updatePlayerCoordinate event (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened) =
-      case event of
-        KeyPress "Up" -> if not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened) && isFloor (playerF, (playerS - 1)) then
-          (GameState (playerF, (playerS - 1)) UpMv redDoorsOpened blueDoorsOpened)
-          else (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
-
-        KeyPress "Down" -> if not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened) && isFloor (playerF, (playerS + 1)) then
-          (GameState (playerF, (playerS + 1)) DownMv redDoorsOpened blueDoorsOpened)
-          else (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
-
-        KeyPress "Left" -> if not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened) && isFloor ((playerF - 1), playerS) then
-          (GameState ((playerF - 1), playerS) LeftMv redDoorsOpened blueDoorsOpened)
-          else (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
-
-        KeyPress "Right" -> if not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened) && isFloor ((playerF + 1), playerS) then
-          (GameState ((playerF + 1), playerS) RightMv redDoorsOpened blueDoorsOpened)
-          else (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
-
-        KeyPress "Enter" -> if not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened) && isBlueButtonCoord (playerF, playerS) then
-          (GameState (playerF, playerS) mv redDoorsOpened (openBlueDoor (Maybe.fromJust (List.elemIndex (playerF, playerS) blueButtonsCoords)) blueDoorsOpened))
-          else if not (isGameFinished (playerF, playerS) redDoorsOpened blueDoorsOpened) && isRedButtonCoord (playerF, playerS) then
-            (GameState (playerF, playerS) mv (openRedDoor (Maybe.fromJust (List.elemIndex (playerF, playerS) redButtonsCoords)) redDoorsOpened) blueDoorsOpened)
-          else (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)  
-
-        _ -> (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpened)
+    gameState = myLevelMapPicture
