@@ -7,6 +7,7 @@ import           CodeWorld
 import qualified Data.List as List
 
 -- | ----------------------- Types And Aliases -----------------------
+--
 type Time = Double
 
 -- | Elevator's Y-position
@@ -51,6 +52,7 @@ data ContainerView
   | Column
 
 -- | ----------------------- Solutions and utilities -----------------------
+--
 -- | Wrapper over zip to index all items in list.
 --   Enumeration starts with zero
 --
@@ -96,16 +98,14 @@ mapWithPaddingFromCenter Row padding trans items =
   foldl
     (<>)
     blank
-    (map
-       (\(i, x) -> translated (fromIntegral i * padding) 0 (trans x))
-       (enumerate items))
+    (map (\(i, x) -> translated (fromIntegral i * padding) 0 $ trans x) $
+     enumerate items)
 mapWithPaddingFromCenter Column padding trans items =
   foldl
     (<>)
     blank
-    (map
-       (\(i, x) -> translated 0 (fromIntegral i * padding) (trans x))
-       (enumerate items))
+    (map (\(i, x) -> translated 0 (fromIntegral i * padding) $ trans x) $
+     enumerate items)
 
 -- | Idling elevator at zero position
 initialElevatorSystemState :: ElevatorSystemState
@@ -114,7 +114,7 @@ initialElevatorSystemState = ElevatorSystemState Idle 0
 -- | All buttons in one line
 solution1 :: IO ()
 solution1 =
-  drawingOf (mapWithPaddingFromCenter Row 5 elevatorButtonPic [Up, Down, Stop])
+  drawingOf $ mapWithPaddingFromCenter Row 5 elevatorButtonPic [Up, Down, Stop]
 
 -- | Handling events, elevator jumping
 solution2 :: IO ()
@@ -124,7 +124,7 @@ solution2 =
     updateElevatorState
     callbackSystemPic
   where
-    updateElevatorState event = nextElevatorState (eventToButtonState event)
+    updateElevatorState event = nextElevatorState $ eventToButtonState event
 
 -- | Same as 'solution2' but with
 --   additional FSM layer of abstraction
@@ -149,6 +149,7 @@ solution4 =
     animatedSystemPic
 
 -- | ----------------------------- Buttons -----------------------------
+--
 elevatorButtonBackgroundPic :: Picture
 elevatorButtonBackgroundPic =
   colored gray (solidCircle 0.8) <> colored black (solidCircle 1)
@@ -170,6 +171,7 @@ elevatorButtonPic Stop =
   colored red (scaled 0.5 0.5 (lettering "STOP")) <> elevatorButtonBackgroundPic
 
 -- | ----------------------------- Controller -----------------------------
+--
 elevatorControllerBackgroundPic :: Picture
 elevatorControllerBackgroundPic =
   colored gray (solidRectangle 1.75 5.75) <> colored black (solidRectangle 2 6)
@@ -197,6 +199,7 @@ elevatorControllerPic MovingDown =
   elevatorControllerBackgroundPic
 
 -- | ----------------------------- Elevator System -----------------------------
+--
 elevatorPic :: Picture
 elevatorPic =
   scaled 2 2 (lettering "🚶") <>
@@ -272,6 +275,7 @@ recomposeElevatorSystem (ElevatorSystemState MovingDown pos) dt =
 recomposeElevatorSystem sys _ = sys
 
 -- | ----------------------------- FSM implementation -----------------------------
+--
 -- | Gets next FSM state according to the given action.
 --   In case if action wasn't produced or found, returns current state
 applyAction ::
@@ -281,7 +285,7 @@ applyAction ::
   -> s -- ˆ Current state
   -> s
 applyAction (Just nextAct) eq trans curState =
-  case List.find (\(act, _) -> eq act nextAct) (trans curState) of
+  case List.find (\(act, _) -> eq act nextAct) $ trans curState of
     Nothing             -> curState
     Just (_, nextState) -> nextState
 applyAction Nothing _ _ curState = curState
