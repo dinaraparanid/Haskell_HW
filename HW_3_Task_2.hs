@@ -111,29 +111,28 @@ mapWithPaddingFromCenter Row padding trans items =
     (<>)
     blank
     (map
-       (\(i, x) -> translated (fromIntegral i * padding) 0 (trans x))
+       (\(i, x) -> translated (fromIntegral i * padding) 0 $ trans x)
        (enumerate items))
 mapWithPaddingFromCenter Column padding trans items =
   foldl
     (<>)
     blank
-    (map
-       (\(i, x) -> translated 0 (fromIntegral i * padding) (trans x))
-       (enumerate items))
+    (map (\(i, x) -> translated 0 (fromIntegral i * padding) $ trans x) $
+     enumerate items)
 
 -- | -------------------------------- Tiles --------------------------------
 gameFieldLen :: Int
 gameFieldLen = 20
 
 floorTile :: Picture
-floorTile = colored yellow (solidRectangle 0.95 0.95)
+floorTile = colored yellow $ solidRectangle 0.95 0.95
 
 wallTile :: Picture
-wallTile = colored black (solidRectangle 0.95 0.95)
+wallTile = colored black $ solidRectangle 0.95 0.95
 
 doorLevel :: Int -> Color -> Picture
 doorLevel i c =
-  colored c (solidRectangle (0.19 * fromIntegral i) (0.19 * fromIntegral i))
+  colored c $ solidRectangle (0.19 * fromIntegral i) (0.19 * fromIntegral i)
 
 doorTileGen :: Int -> Color -> Picture
 doorTileGen i c
@@ -145,7 +144,7 @@ doorTile :: Color -> Picture
 doorTile = doorTileGen 5
 
 openedDoorTile :: Color -> Picture
-openedDoorTile c = colored c (solidRectangle 0.95 0.95)
+openedDoorTile c = colored c $ solidRectangle 0.95 0.95
 
 redDoorTile :: Picture
 redDoorTile = doorTile red
@@ -166,7 +165,7 @@ openedExitTile :: Picture
 openedExitTile = openedDoorTile green
 
 buttonTile :: Color -> Picture
-buttonTile c = colored c (solidCircle 0.3)
+buttonTile c = colored c $ solidCircle 0.3
 
 blueButtonTile :: Picture
 blueButtonTile = buttonTile blue <> floorTile
@@ -176,10 +175,10 @@ redButtonTile = buttonTile red <> floorTile
 
 -- | Rotates/reflects 🚶 according to the given movement
 playerTile :: PlayerMovement -> Picture
-playerTile UpMv    = rotated (-pi / 2) (lettering "🚶")
-playerTile DownMv  = reflected (pi / 2) (rotated (pi / 2) (lettering "🚶"))
+playerTile UpMv    = rotated (-pi / 2) $ lettering "🚶"
+playerTile DownMv  = reflected (pi / 2) $ rotated (pi / 2) $ lettering "🚶"
 playerTile LeftMv  = lettering "🚶"
-playerTile RightMv = reflected (pi / 2) (lettering "🚶")
+playerTile RightMv = reflected (pi / 2) $ lettering "🚶"
 
 -- | Translates tile to the given position in integers
 translatedTile :: Coords -> Picture -> Picture
@@ -340,7 +339,7 @@ openDoor ::
   -> [Coords] -- ˆ 'doorsCoords' are either blue or red doors' coordinates
   -> Set.Set Coords -- ˆ 'openedDoorsCoords' are either opened blue or red doors' coordinates
   -> Set.Set Coords
-openDoor index doorsCoords = Set.insert (doorsCoords !! index)
+openDoor index doorsCoords = Set.insert $ doorsCoords !! index
 
 -- | Opens blue door by given button's index.
 --   Implementation relates on tree-sets to store only unique values
@@ -472,7 +471,7 @@ gameStyledText ::
   -> Text.Text -- ˆ Message
   -> Picture
 gameStyledText x y style text =
-  scaled x y (colored white (styledLettering style (NamedFont "Pristina") text))
+  scaled x y $ colored white $ styledLettering style (NamedFont "Pristina") text
 
 startScreenPic :: Picture
 startScreenPic =
@@ -543,12 +542,12 @@ handleEvents event (GameState (playerF, playerS) mv redDoorsOpened blueDoorsOpen
       buttonOpened
         redDoorsOpened
         (openBlueDoor
-           (Maybe.fromJust (List.elemIndex (playerF, playerS) blueButtonsCoords))
+           (Maybe.fromJust $ List.elemIndex (playerF, playerS) blueButtonsCoords)
            blueDoorsOpened)
     redButtonOpened =
       buttonOpened
         (openRedDoor
-           (Maybe.fromJust (List.elemIndex (playerF, playerS) redButtonsCoords))
+           (Maybe.fromJust $ List.elemIndex (playerF, playerS) redButtonsCoords)
            redDoorsOpened)
         blueDoorsOpened
 
